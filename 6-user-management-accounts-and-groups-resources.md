@@ -147,3 +147,30 @@ It contains encrypted passwords and restricting access prevents unauthorized use
 ### 7. A user was added to a group but still cannot access resources, why
 
 Group membership changes require a new session, so the user must log out and log back in or use newgrp for changes to take effect
+
+
+# Linux Users and Groups – Outline
+
+## Overview
+- Normal and root users
+- `/etc/passwd`
+- `/etc/group`
+- `/etc/shadow`
+
+## Users
+- Adding (`useradd`)
+- Home directory & `/etc/skel`
+- Removing (`userdel`)
+- Modifying (`usermod`)
+- `passwd`
+
+## Groups
+- Adding (`groupadd`)
+- Modifying (`groupmod`)
+- Removing (`groupdel`)
+
+## Admin Related
+- Root user
+- sudoers
+- `visudo`
+- Account locking
