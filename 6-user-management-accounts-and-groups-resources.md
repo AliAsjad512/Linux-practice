@@ -174,3 +174,5 @@ Group membership changes require a new session, so the user must log out and log
 - sudoers
 - `visudo`
 - Account locking
+
+grep $(whoami) /etc/passwd | cut -d: -f7
