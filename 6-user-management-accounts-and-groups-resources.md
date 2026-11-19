@@ -176,3 +176,414 @@ Group membership changes require a new session, so the user must log out and log
 - Account locking
 
 grep $(whoami) /etc/passwd | cut -d: -f7
+
+
+# Linux Users and Groups – Lab Solutions
+
+> **Note:** Commands that change the system (creating or deleting users and groups) need root.
+> If you're logged in as a normal user, put `sudo` in front. If you're already root (`#` prompt), you can drop `sudo`.
+
+---
+
+## 1. Display your current username
+
+```bash
+whoami
+```
+
+---
+
+## 2. Display detailed user and group ID information
+
+```bash
+id
+```
+
+Shows your UID (user ID), GID (primary group ID), and all groups you belong to.
+
+---
+
+## 3. Display all user accounts on the system
+
+```bash
+cat /etc/passwd
+```
+
+Only the usernames:
+
+```bash
+cut -d: -f1 /etc/passwd
+```
+
+---
+
+## 4. Examine the structure of the user account database
+
+```bash
+head -5 /etc/passwd
+man 5 passwd
+```
+
+Each line has 7 fields separated by `:`
+
+```
+username:x:UID:GID:comment:home_directory:shell
+root:x:0:0:root:/root:/bin/bash
+```
+
+| Field | Meaning |
+|---|---|
+| `username` | Login name |
+| `x` | Password is stored in `/etc/shadow` |
+| `UID` | User ID (0 = root) |
+| `GID` | Primary group ID |
+| `comment` | Full name or description |
+| `home_directory` | Home folder |
+| `shell` | Login shell |
+
+---
+
+## 5. Find the root user in the password file
+
+```bash
+grep '^root:' /etc/passwd
+```
+
+`^` means "at the start of the line," so it only matches the line that begins with `root:`.
+
+---
+
+## 6. Display all groups on the system
+
+```bash
+cat /etc/group
+```
+
+Only the group names:
+
+```bash
+cut -d: -f1 /etc/group
+```
+
+---
+
+## 7. Determine which group is your primary group
+
+```bash
+id -gn
+```
+
+---
+
+## 8. List all groups you are a member of
+
+```bash
+groups
+```
+
+Or:
+
+```bash
+id -Gn
+```
+
+---
+
+## 9. Display your complete user account information
+
+```bash
+grep "^$(whoami):" /etc/passwd
+```
+
+Or:
+
+```bash
+getent passwd $(whoami)
+```
+
+---
+
+## 10. View all user home directories
+
+```bash
+ls -l /home
+```
+
+Home directories of every account (field 6 of `/etc/passwd`):
+
+```bash
+cut -d: -f1,6 /etc/passwd
+```
+
+---
+
+## 11. Find what shell you use for login
+
+```bash
+getent passwd $(whoami) | cut -d: -f7
+```
+
+Or:
+
+```bash
+echo $SHELL
+```
+
+---
+
+## 12. Display your full name or description
+
+```bash
+getent passwd $(whoami) | cut -d: -f5
+```
+
+Field 5 is the comment (GECOS) field. It may be empty if no name was set.
+
+---
+
+## 13. View recent login information for your user
+
+```bash
+last $(whoami) | head
+```
+
+Most recent login per user (if available on your system):
+
+```bash
+lastlog -u $(whoami)
+```
+
+> **Why it matters:** Not so important in the lab setup, since lab terminals are ephemeral, but super critical when debugging production issues, especially when you need to know who logged in last.
+
+The `last` command shows login history from the system logs. When followed by a username, it filters the output to show only that user's login sessions, including:
+
+- Login time
+- Logout time
+- Session duration
+- Terminal and IP address
+
+It's useful for **security auditing**, **tracking user activity**, and **investigating unauthorized access attempts**.
+
+---
+
+## 14. Display all currently logged-in users
+
+```bash
+who
+```
+
+More detail (what each user is doing):
+
+```bash
+w
+```
+
+> **Why it matters:** Imagine your server is running slow and you want to know who else is using it, or you want to restart the system but first need to know whether any users are still connected. That's exactly what the `who` command is for.
+
+The `who` command displays currently logged-in users with their terminal and login time. In multi-user environments, it shows active sessions and helps identify system usage. Each line shows:
+
+- Username
+- Terminal (like `tty1` for a local console, or `pts/0` for a remote SSH session)
+- Login date and time
+- Sometimes the remote host (IP address)
+
+It's useful for **system monitoring** and **ensuring only authorized users are connected**.
+
+---
+
+## 15. Check password aging information for your account
+
+```bash
+sudo chage -l $(whoami)
+```
+
+Shows when the password was last changed, when it expires, and warning days.
+
+---
+
+## 16. Test if you can run commands with sudo
+
+```bash
+sudo -l
+```
+
+Lists what you're allowed to run with sudo. Quick test:
+
+```bash
+sudo whoami
+```
+
+If it prints `root`, sudo works for you.
+
+---
+
+## 17. Display default settings for new users
+
+```bash
+useradd -D
+```
+
+Related config files:
+
+```bash
+cat /etc/default/useradd
+grep -v '^#' /etc/login.defs | grep -v '^$'
+```
+
+---
+
+## 18. Display login failure attempts
+
+```bash
+sudo lastb
+```
+
+On RHEL (failed login lock counter):
+
+```bash
+sudo faillock --user $(whoami)
+```
+
+> **Why it matters:** The `lastb` command shows **bad** login attempts, which makes it helpful for security monitoring.
+
+Failed logins can indicate:
+
+- **Brute force attacks** (someone repeatedly guessing passwords)
+- **Typos** (a user mistyping their password)
+- **Account lockout situations**
+
+`lastb` reads from `/var/log/btmp`, the file that logs failed authentication attempts. That's why it needs `sudo`: the file is readable only by root.
+
+Regular monitoring of failed logins is important for **security auditing** and **incident response**.
+
+---
+
+## 19. Create a new user account named devuser with a home directory
+
+```bash
+sudo useradd -m devuser
+```
+
+`-m` creates the home directory `/home/devuser` (copied from `/etc/skel`).
+
+Verify:
+
+```bash
+grep devuser /etc/passwd
+ls -ld /home/devuser
+```
+
+---
+
+## 20. Set a password for the newly created user devuser
+
+```bash
+sudo passwd devuser
+```
+
+Type the new password twice when asked.
+
+---
+
+## 21. Switch to the user devuser and load their full environment
+
+```bash
+su - devuser
+```
+
+The `-` loads devuser's full login environment (home directory, PATH, shell settings).
+
+Check:
+
+```bash
+whoami
+pwd
+```
+
+---
+
+## 22. Switch back to root user
+
+```bash
+exit
+```
+
+This ends devuser's session and returns you to the previous user.
+
+---
+
+## 23. Create a new group named devops
+
+```bash
+sudo groupadd devops
+```
+
+Verify:
+
+```bash
+grep devops /etc/group
+```
+
+---
+
+## 24. Add the user devuser to the devops group
+
+```bash
+sudo usermod -aG devops devuser
+```
+
+- `-a` = **append** (keep existing groups)
+- `-G` = supplementary group
+
+> ⚠️ Never forget `-a`. Without it, `-G` **replaces** all of the user's other supplementary groups.
+
+---
+
+## 25. Check which groups the user devuser belongs to
+
+```bash
+groups devuser
+```
+
+Or:
+
+```bash
+id devuser
+```
+
+---
+
+## 26. Delete the user devuser and remove their home directory
+
+```bash
+sudo userdel -r devuser
+```
+
+`-r` also removes `/home/devuser` and the user's mail spool.
+
+Verify:
+
+```bash
+grep devuser /etc/passwd
+ls /home
+```
+
+---
+
+## 27. Delete the group devops
+
+```bash
+sudo groupdel devops
+```
+
+Verify:
+
+```bash
+grep devops /etc/group
+```
+
+No output means the group is gone.
+
+
+to remove user from a group
+sudo gpasswd -d <username>
