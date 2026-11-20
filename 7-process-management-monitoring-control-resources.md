@@ -195,3 +195,10 @@ Listening on port 22 (SSH)
 Accepts connections from anywhere
 
 This is how you connected to this machine
+
+
+
+
+This command shows processes with their elapsed time (etime). The etime format shows days-hours:minutes:seconds or hours:minutes:seconds. Long-running processes often include system daemons, database servers, and web servers. Identifying these helps understand system stability, find processes that might need restart, and monitor service uptime for maintenance planning.
+
+ps -eo pid,etime,comm --sort=-etime | head -10
