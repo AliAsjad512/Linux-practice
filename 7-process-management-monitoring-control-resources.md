@@ -165,3 +165,33 @@ kill -1  [pid]     <- sends sighup
 kill -9  [pid]     <- sends sigkill
 
 suspend a process running in foreground:
+
+
+
+So you are seeing: “Which processes are listening on which ports for networking”
+
+The netstat command with -tuln options shows network connections: 
+'t' for TCP, 
+'u' for UDP, 
+'l' for listening sockets, 
+'n' for numeric addresses (no DNS lookup), and 
+'p' for process information. 
+
+This reveals which processes are listening on which ports, active connections, and network usage patterns. 
+
+For example you will see something like : 
+
+tcp  127.0.0.53:53   LISTEN   826/systemd-resolve
+
+systemd-resolved meaning:
+Running on 127.0.0.53 (localhost)
+Port 53 (DNS)
+Handles DNS queries locally, Only accessible from your machine, not external
+
+tcp  0.0.0.0:22   LISTEN   899/sshd
+sshd meaning:
+Listening on port 22 (SSH)
+0.0.0.0 = all network interfaces
+Accepts connections from anywhere
+
+This is how you connected to this machine
