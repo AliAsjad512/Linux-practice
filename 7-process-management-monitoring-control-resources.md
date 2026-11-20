@@ -139,3 +139,29 @@ A zombie process is a terminated process whose parent has not collected its exit
 ### 6. What is nice and renice and how do they affect process execution
 
 Nice sets the priority of a process when it starts, and renice changes the priority of a running process; higher nice values lower priority and reduce CPU allocation while lower values increase priority
+
+
+outline:
+- init
+- fork/exec
+- ps
+- kill
+- fg/bg/jobs
+
+start a process:
+[command]
+
+replace current process with another process:
+exec [command]
+
+see processes in your shell:
+ps f
+
+kill processes:
+kill -15 [pid]     <- sends sigterm
+kill     [pid]     <- also sends sigterm
+kill -2  [pid]     <- sends sigint
+kill -1  [pid]     <- sends sighup
+kill -9  [pid]     <- sends sigkill
+
+suspend a process running in foreground:
