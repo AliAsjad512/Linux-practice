@@ -587,3 +587,5 @@ No output means the group is gone.
 
 to remove user from a group
 sudo gpasswd -d <username>
+
+xzaafkdf
