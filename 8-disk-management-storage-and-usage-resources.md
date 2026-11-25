@@ -152,3 +152,364 @@ First identify the disk, create a partition using tools like fdisk, then format 
 ### 10. How can you detect which directory is consuming the most disk space
 
 You can use du -h with sorting (e.g., du -h | sort -h) or targeted checks like du -sh /path/* to identify directories consuming the most space
+
+
+# Linux Disk & Storage Management – Lab Solutions
+
+> **Note:** Many of these commands need root to see everything. If you're a normal user, put `sudo` in front.
+> Add `2>/dev/null` to `find` and `du` commands to hide "Permission denied" noise.
+
+---
+
+## 1. Display filesystem usage for all mounted filesystems
+
+```bash
+df -h
+```
+
+`-h` = human-readable sizes (K, M, G).
+
+**Why it matters:** This is the first command in any "disk full" incident. It shows every mounted filesystem with its size, used space, free space and `Use%`, so you instantly see which one is in trouble.
+
+---
+
+## 2. Calculate the total size of your home directory
+
+```bash
+du -sh ~
+```
+
+- `-s` = summary (one total, not every subfolder)
+- `-h` = human-readable
+
+**Why it matters:** `df` tells you a filesystem is full; `du` tells you *which folder* is using the space. Use it to check whether a user's home (old downloads, backups, logs) is the culprit.
+
+---
+
+## 3. Identify the largest directories in the root filesystem
+
+```bash
+sudo du -xh / --max-depth=1 2>/dev/null | sort -h | tail -10
+```
+
+- `-x` = stay on this filesystem (don't count other mounted disks)
+- `--max-depth=1` = only top-level folders
+- `sort -h | tail -10` = biggest 10, largest last
+
+**Why it matters:** When `/` is filling up, this narrows the search from the whole system to one folder in seconds. Then you drill down into the biggest one and repeat.
+
+---
+
+## 4. Display filesystem types for all mounted filesystems
+
+```bash
+df -Th
+```
+
+`-T` adds a `Type` column (ext4, xfs, tmpfs, overlay…).
+
+**Why it matters:** The filesystem type decides what you can do: XFS can grow but never shrink, ext4 can do both. Always check the type before resizing, repairing, or choosing a grow command.
+
+---
+
+## 5. Display inode usage for all filesystems
+
+```bash
+df -ih
+```
+
+**Why it matters:** A disk can show free space yet refuse new files because it ran out of inodes (one per file). This happens with millions of tiny files (cache, sessions, mail queues), and `df -h` alone won't reveal it.
+
+---
+
+## 6. Display all block storage devices and their hierarchy
+
+```bash
+lsblk
+```
+
+More detail (filesystem, UUID, mount point):
+
+```bash
+lsblk -f
+```
+
+**Why it matters:** Shows the full storage stack (disk → partition → LVM → mount point) in one tree. Run it before touching any disk so you never format or partition the wrong one.
+
+---
+
+## 7. Locate files larger than 100MB in the system
+
+```bash
+sudo find / -xdev -type f -size +100M -exec ls -lh {} \; 2>/dev/null
+```
+
+- `-xdev` = stay on the root filesystem
+- `-size +100M` = bigger than 100 MB
+- `-exec ls -lh {} \;` = show size and details of each file
+
+**Why it matters:** Big forgotten files (old backups, ISO images, core dumps, huge logs) are the fastest space to reclaim. This finds them directly instead of guessing.
+
+---
+
+## 8. Examine disk usage breakdown for /var directory
+
+```bash
+sudo du -h /var --max-depth=1 2>/dev/null | sort -h
+```
+
+**Why it matters:** `/var` holds logs, caches, databases, and Docker data, so it's the most common place to fill up on servers. Usual suspects: `/var/log`, `/var/cache`, `/var/lib/docker`.
+
+---
+
+## 9. Display currently mounted filesystems and their options
+
+```bash
+findmnt
+```
+
+Plain list:
+
+```bash
+mount | column -t
+```
+
+**Why it matters:** Shows what is mounted where, and with which options (`ro`/`rw`, `noexec`, `nosuid`). Useful when a disk suddenly becomes read-only after errors, or to check security options on `/tmp`.
+
+---
+
+## 10. Display usage information for the root filesystem only
+
+```bash
+df -h /
+```
+
+**Why it matters:** When you only care about one filesystem, give `df` its path. It's ideal for quick checks, scripts, and monitoring alerts on `/`.
+
+---
+
+## 11. Locate large files modified in the last 7 days
+
+```bash
+sudo find / -xdev -type f -size +50M -mtime -7 -exec ls -lh {} \; 2>/dev/null
+```
+
+- `-mtime -7` = modified less than 7 days ago
+
+**Why it matters:** If the disk filled up *recently*, the cause is usually a *new* big file: a runaway log, a fresh backup, or a dump. This finds exactly what grew this week.
+
+---
+
+## 12. Display disk input/output statistics for all devices
+
+```bash
+sudo apt install -y sysstat     # Ubuntu (RHEL: dnf install -y sysstat)
+iostat -xz 2 3
+```
+
+- `-x` = extended stats, `-z` = hide idle devices
+- `2 3` = every 2 seconds, 3 times
+
+Watch `%util` (how busy the disk is) and `await` (wait time in ms).
+
+**Why it matters:** When a server is slow but CPU looks fine, the disk is often the bottleneck. High `%util` and `await` confirm it; it's common with databases and heavy logging.
+
+---
+
+## 13. Locate empty directories that can be cleaned up
+
+```bash
+find /path/to/check -type d -empty
+```
+
+**Why it matters:** Old deployments and temporary jobs leave empty folders behind. They use little space, but cleaning them keeps directories tidy and speeds up tools that scan them.
+
+> ⚠️ Never delete empty directories under system paths (`/`, `/etc`, `/var/lib`) blindly. Some apps expect them to exist.
+
+---
+
+## 14. Locate large files that haven't been accessed recently
+
+```bash
+sudo find / -xdev -type f -size +50M -atime +30 -exec ls -lh {} \; 2>/dev/null
+```
+
+- `-atime +30` = not read in more than 30 days
+
+**Why it matters:** These are good candidates to archive, compress, or delete, because nobody is using them. Confirm with the owner first; some systems mount with `relatime`, so access times are approximate.
+
+---
+
+## 15. Create a file that will act as a virtual disk for partitioning
+
+```bash
+truncate -s 1G /root/virtual-disk.img
+```
+
+Or (writes real zeros, slower):
+
+```bash
+dd if=/dev/zero of=/root/virtual-disk.img bs=1M count=1024
+```
+
+**Why it matters:** A file-based disk lets you safely practise partitioning, formatting and mounting without touching a real disk. It's also how some test environments and CI pipelines simulate storage.
+
+---
+
+## 16. Attach the virtual disk file as a loop device so the system treats it like a real disk
+
+```bash
+sudo losetup -fP --show /root/virtual-disk.img
+```
+
+- `-f` = use the first free loop device
+- `-P` = scan for partitions
+- `--show` = print the device name (e.g. `/dev/loop18`)
+
+**Why it matters:** A loop device makes a file behave like a block device (`/dev/loopX`), so `parted`, `mkfs` and `mount` work on it exactly as on a real disk. Snap packages and ISO images use the same mechanism.
+
+---
+
+## 17. Find the newly created loop device using lsblk
+
+```bash
+lsblk
+losetup -a
+```
+
+`losetup -a` lists every loop device and which file it's attached to.
+
+**Why it matters:** Always confirm the device name before formatting. Loop numbers vary between systems, and Snap packages already use many of them.
+
+**Optional – create a partition on it:**
+
+```bash
+sudo parted /dev/loop18 --script mklabel gpt mkpart primary ext4 1MiB 100%
+lsblk /dev/loop18       # shows loop18p1
+```
+
+---
+
+## 18. Format the new partition with a filesystem
+
+```bash
+sudo mkfs.ext4 /dev/loop18p1      # if you created a partition
+# or
+sudo mkfs.ext4 /dev/loop18        # if you use the whole loop device
+```
+
+**Why it matters:** A disk or partition is raw space until it has a filesystem. `mkfs` creates that structure, and it **erases everything**, so double-check the device name first.
+
+---
+
+## 19. Mount the partition to a directory so it can be used
+
+```bash
+sudo mkdir -p /mnt/test_location
+sudo mount /dev/loop18p1 /mnt/test_location
+```
+
+**Why it matters:** Mounting connects the filesystem to a folder, so files written there go to that disk. This is how servers put data, logs, or databases on separate disks.
+
+---
+
+## 20. Confirm that the partition is mounted correctly
+
+```bash
+df -h /mnt/test_location
+findmnt /mnt/test_location
+```
+
+**Why it matters:** If a mount silently fails, files land on the root disk instead and fill it up. Always verify that the folder shows the *new* device and its size.
+
+---
+
+## 21. Simulate Continuous Log Writing
+
+```bash
+while true; do
+    echo "INFO: app running at $(date)" >> /mnt/test_location/app.log
+    sleep 1
+done &
+```
+
+- `>>` = append a line each second
+- `&` = run the loop in the background
+
+**Why it matters:** This mimics a real application writing logs nonstop. Unmanaged log growth is one of the most common causes of full disks in production.
+
+---
+
+## 22. Observe how the log file grows over time in the mounted partition
+
+```bash
+tail -f /mnt/test_location/app.log
+```
+
+Press `Ctrl+C` to stop watching (this doesn't stop the loop).
+
+File size:
+
+```bash
+ls -lh /mnt/test_location/app.log
+```
+
+**Why it matters:** `tail -f` is the everyday way to watch an application live while troubleshooting. You see new lines the moment they're written.
+
+---
+
+## 23. Verify that the mounted partition is being used as the log file grows
+
+```bash
+watch -n 2 df -h /mnt/test_location
+```
+
+Press `Ctrl+C` to exit.
+
+**Why it matters:** It proves the writes go to the *mounted* disk, not to `/`. In production, the same check catches the moment a log partition starts filling, before it hits 100%.
+
+---
+
+## 24. Identify and stop the background process generating logs
+
+Find it:
+
+```bash
+jobs -l
+```
+
+Or from any terminal:
+
+```bash
+ps aux | grep "[a]pp.log"
+```
+
+Stop it (use the job number or the PID of the **loop's `bash`**, not the `sleep`):
+
+```bash
+kill %1
+# or
+kill <PID>
+```
+
+Confirm the log stopped growing:
+
+```bash
+tail -n 1 /mnt/test_location/app.log; sleep 3; tail -n 1 /mnt/test_location/app.log
+```
+
+**Why it matters:** A runaway process will keep filling the disk until it's stopped; cleaning space without stopping it only buys minutes. Find it, stop it, then fix the root cause (log rotation, app config).
+
+> ⚠️ Don't kill the `sleep` PID: the loop simply starts a new `sleep` a second later.
+
+---
+
+## Cleanup (after the lab)
+
+```bash
+sudo umount /mnt/test_location
+sudo losetup -d /dev/loop18
+rm /root/virtual-disk.img
+```
+
+Use your actual loop device name. Unmount first; detaching a mounted loop device fails.
